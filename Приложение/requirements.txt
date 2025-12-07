@@ -1,0 +1,20 @@
+# Веб-фреймворк
+Flask>=3.0.0
+
+# YOLOv8 и инференс модели
+ultralytics>=8.3.0
+torch>=2.0.0
+
+# Обработка изображений
+opencv-python
+Pillow
+
+# Конфигурация и YAML
+python-dotenv
+PyYAML
+
+# LLM через ProxyAPI (OpenAI-совместимый клиент)
+openai>=1.0.0
+
+# Production-сервер (для деплоя, опционально)
+gunicorn>=21.2.0
