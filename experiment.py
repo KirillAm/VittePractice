@@ -310,3 +310,160 @@ else:
             print("  Классы и количество изображений:")
             for cls_name, cls_count in class_counts.items():
                 print(f"    {cls_name}: {cls_count}")
+
+"""### Шаг 3. Приведение LabEquipVis и E-waste к общему YOLO-формату и сбор «совмещенного» датасета
+
+На этом шаге мы:
+
+1. Читаем `data.yaml` из **LabEquipVis (Augmented Data)** и извлекаем список классов.
+2. Сканируем **E-waste** (`modified-dataset`) и берём названия классов из папок (`Battery`, `Keyboard`, `Mouse`, …).
+3. Приводим имена классов к единому «каноническому» виду (нижний регистр, подчёркивания вместо пробелов) и строим общий словарь классов.
+   * Классы LabEquipVis идут «базой».
+   * Классы E-waste добавляются только если ещё не встречались.
+4. Собираем единый датасет в `data/processed/combined_yolo/` в формате YOLOv8:
+   * `images/train`, `images/val`, `images/test`
+   * `labels/train`, `labels/val`, `labels/test`
+   * для **LabEquipVis**:
+     * копируем изображения из `Augmented Data/train|valid|test/images`;
+     * переписываем разметку из `labels`, переиндексируя классы в соответствии с новым словарём;
+     * префикс имён файлов: `lab_…`.
+   * для **E-waste**:
+     * для каждого изображения в папке класса создаём один бокс на весь кадр (`0.5 0.5 1.0 1.0`);
+     * класс берём из папки, переиндексируем по общему словарю;
+     * префикс имён файлов: `ew_…`.
+5. Создаём `data.yaml` для совмещённого датасета и выводим сводную статистику по сплитам.
+
+Этот шаг даёт готовый объединённый набор данных, с которым уже можно обучать YOLOv8.
+
+"""
+
+# Импорт и подготовка: общие классы, чтение data.yaml LabEquipVis, классы E-waste
+
+# Устанавливаем PyYAML, если ещё не установлен
+!pip install -q pyyaml
+
+import os
+from pathlib import Path
+import shutil
+from collections import defaultdict
+import yaml
+
+# Базовые пути (на случай, если ядро перезапускали)
+try:
+    PROJECT_ROOT
+except NameError:
+    PROJECT_ROOT = Path("/content") / "computer_lab_detector"
+
+RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+COMBINED_ROOT = PROCESSED_DATA_DIR / "combined_yolo"
+
+LAB_ROOT = RAW_DATA_DIR / "labequipvis"
+LAB_AUG_ROOT = LAB_ROOT / "Augmented Data"  # используем аугментированный набор
+EW_ROOT = RAW_DATA_DIR / "e_waste_image_dataset"
+EW_MOD_ROOT = EW_ROOT / "modified-dataset"
+
+for p in [PROCESSED_DATA_DIR, COMBINED_ROOT]:
+    p.mkdir(parents=True, exist_ok=True)
+
+print("PROJECT_ROOT:", PROJECT_ROOT)
+print("RAW_DATA_DIR:", RAW_DATA_DIR)
+print("COMBINED_ROOT:", COMBINED_ROOT)
+
+
+def canonical_name(name: str) -> str:
+    """
+    Приводит имя класса к каноническому виду:
+    - обрезает пробелы по краям
+    - заменяет пробелы и дефисы на подчёркивания
+    - переводит в нижний регистр
+    """
+    name = name.strip()
+    name = name.replace(" ", "_").replace("-", "_")
+    return name.lower()
+
+
+# ---------- 1. Классы LabEquipVis (из data.yaml) ----------
+
+lab_yaml_path = LAB_AUG_ROOT / "data.yaml"
+if not lab_yaml_path.exists():
+    raise FileNotFoundError(f"Не найден data.yaml LabEquipVis по пути {lab_yaml_path}")
+
+with open(lab_yaml_path, "r") as f:
+    lab_yaml = yaml.safe_load(f)
+
+lab_names_raw = lab_yaml.get("names")
+if lab_names_raw is None:
+    raise ValueError("В LabEquipVis data.yaml не найден ключ 'names'.")
+
+# В YOLO data.yaml names может быть списком или словарём {id: name}
+if isinstance(lab_names_raw, dict):
+    # сортируем по индексу класса
+    lab_class_names = [lab_names_raw[k] for k in sorted(lab_names_raw.keys(), key=int)]
+else:
+    lab_class_names = list(lab_names_raw)
+
+print("\nКлассы LabEquipVis (как в data.yaml):")
+for idx, name in enumerate(lab_class_names):
+    print(f"  {idx}: {name}")
+
+# Строим общий словарь классов, начиная с LabEquipVis
+canonical_to_idx = {}
+final_class_names = []  # имена классов по новым индексам (для общего data.yaml)
+lab_index_map = {}      # сопоставление: старый индекс LabEquipVis -> новый индекс
+
+for old_idx, name in enumerate(lab_class_names):
+    c = canonical_name(name)
+    if c in canonical_to_idx:
+        new_idx = canonical_to_idx[c]
+    else:
+        new_idx = len(final_class_names)
+        canonical_to_idx[c] = new_idx
+        final_class_names.append(c)
+    lab_index_map[old_idx] = new_idx
+
+print("\nСоответствие индексов LabEquipVis -> объединённые классы:")
+for old_idx, name in enumerate(lab_class_names):
+    c = canonical_name(name)
+    print(f"  Lab {old_idx}: {name} -> {c} -> new_id={lab_index_map[old_idx]}")
+
+# ---------- 2. Классы E-waste (из имён папок в modified-dataset/train) ----------
+
+if not EW_MOD_ROOT.exists():
+    raise FileNotFoundError(f"Не найдена папка modified-dataset по пути {EW_MOD_ROOT}")
+
+ew_train_root = EW_MOD_ROOT / "train"
+if not ew_train_root.exists():
+    raise FileNotFoundError(f"Не найдена папка train в {EW_MOD_ROOT}")
+
+# при желании можно ограничить список подключаемых классов E-waste:
+# например, только компьютерные: {"Keyboard", "Mouse", "Printer"}
+EWASTE_INCLUDED_CLASSES = None  # или set([...])
+
+ew_name_to_final_idx = {}
+
+ew_class_dirs = sorted([d for d in ew_train_root.iterdir() if d.is_dir()],
+                       key=lambda p: p.name)
+
+print("\nКлассы E-waste (по папкам в train):")
+for class_dir in ew_class_dirs:
+    orig_name = class_dir.name
+    if EWASTE_INCLUDED_CLASSES is not None and orig_name not in EWASTE_INCLUDED_CLASSES:
+        print(f"  [Пропускаем] {orig_name}")
+        continue
+
+    c = canonical_name(orig_name)
+    if c in canonical_to_idx:
+        new_idx = canonical_to_idx[c]
+    else:
+        new_idx = len(final_class_names)
+        canonical_to_idx[c] = new_idx
+        final_class_names.append(c)
+
+    ew_name_to_final_idx[orig_name] = new_idx
+    print(f"  {orig_name} -> {c} -> new_id={new_idx}")
+
+print("\nИтоговый список классов (объединённый):")
+for i, name in enumerate(final_class_names):
+    print(f"  {i}: {name}")
+print(f"Всего классов: {len(final_class_names)}")
