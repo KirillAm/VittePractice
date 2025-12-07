@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}Результаты анализа изображения{% endblock %}
+
+{% block content %}
+<section class="section">
+    <h1>Результаты анализа изображения</h1>
+    <p>
+        Ниже показаны исходный снимок аудитории и тот же кадр с подсвеченными объектами,
+        обнаруженными моделью <code>YOLOv8</code>. Под таблицей приведена сводка
+        по инвентаризации и текстовый отчёт ИИ-ассистента.
+    </p>
+
+    <div class="grid two-columns images-compare">
+        <div class="image-card">
+            <h2>Исходное изображение</h2>
+            <div class="image-wrapper">
+                <img src="{{ orig_image_path }}" alt="Исходное изображение аудитории">
+            </div>
+        </div>
+
+        <div class="image-card">
+            <h2>Обнаруженные объекты</h2>
+            <div class="image-wrapper">
+                <img src="{{ detected_image_path }}" alt="Изображение с подсвеченными объектами">
+            </div>
+        </div>
+    </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Таблица обнаруженных объектов</h2>
+
+    {% if detections and detections|length > 0 %}
+        <p>
+            Модель обнаружила {{ detections|length }} объектов на изображении.
+            В таблице приведены класс, уверенность модели и координаты ограничивающей рамки
+            в пикселях (левый верхний и правый нижний углы).
+        </p>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Класс</th>
+                    <th>Уверенность</th>
+                    <th>Координаты bbox [x1, y1, x2, y2]</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for det in detections %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ det.class_name }}</td>
+                        <td>{{ "%.3f"|format(det.confidence) }}</td>
+                        <td>
+                            [{% if det.bbox %}{{ "%.1f"|format(det.bbox[0]) }},
+                            {{ "%.1f"|format(det.bbox[1]) }},
+                            {{ "%.1f"|format(det.bbox[2]) }},
+                            {{ "%.1f"|format(det.bbox[3]) }}{% else %}-{% endif %}]
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>
+            На изображении не удалось надёжно обнаружить объекты с заданным порогом уверенности.
+            Попробуйте выбрать другой кадр или увеличить контраст / освещённость сцены.
+        </p>
+    {% endif %}
+	{% if vision_comment %}
+	  <div class="report-block" style="margin-top: 0.75rem;">
+		  <strong>Комментарий по корректировке инвентаризации:</strong><br>
+		  {{ vision_comment }}
+	  </div>
+	{% endif %}
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Инвентаризационная сводка</h2>
+
+    {% set counts = inventory.class_counts %}
+    {% set missing = inventory.missing_items %}
+    {% set extra = inventory.extra_items %}
+    {% set workplaces = inventory.num_workplaces_estimate %}
+
+    <div class="grid two-columns">
+        <div>
+            <h3>Оценка рабочих мест и техники</h3>
+            <ul class="bullet-list">
+                <li>
+                    Оценочное количество рабочих мест по мониторам:
+                    <strong>{{ workplaces }}</strong>
+                </li>
+                <li>
+                    Всего обнаруженных объектов:
+                    <strong>{{ counts.values()|sum }}</strong>
+                </li>
+            </ul>
+
+            <h4>Количество объектов по классам</h4>
+            {% if counts %}
+                <div class="table-wrapper small">
+                    <table class="data-table compact">
+                        <thead>
+                        <tr>
+                            <th>Класс</th>
+                            <th>Количество</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for cls, cnt in counts.items()|sort %}
+                            <tr>
+                                <td>{{ cls }}</td>
+                                <td>{{ cnt }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>Техника на изображении не обнаружена.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h3>Недостающие и лишние элементы</h3>
+
+            <h4>Недостающие элементы для рабочих мест</h4>
+            {% if missing %}
+                <ul class="bullet-list">
+                    {% for cls, cnt in missing.items() %}
+                        <li>
+                            <strong>{{ cls }}</strong> — не хватает {{ cnt }} единиц относительно оценочного
+                            количества рабочих мест.
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>
+                    По базовой модели рабочего места (<code>monitor + cpu + keyboard + mouse</code>)
+                    критических недостач не выявлено.
+                </p>
+            {% endif %}
+
+            <h4>Лишние или посторонние объекты</h4>
+            {% if extra %}
+                <ul class="bullet-list">
+                    {% for cls, cnt in extra.items() %}
+                        <li><strong>{{ cls }}</strong> — {{ cnt }} шт.</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Выраженных «лишних» объектов (вне базового набора периферии) не обнаружено.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Текстовый отчёт ИИ-ассистента</h2>
+    {% if report_text %}
+        <div class="report-block">
+            {{ report_text | safe }}
+        </div>
+    {% else %}
+        <p>
+            Текстовый отчёт не был сформирован. Проверьте настройки подключения к ProxyAPI
+            и конфигурацию модели ChatGPT.
+        </p>
+    {% endif %}
+</section>
+
+<div class="section">
+    <a href="{{ url_for('main.index') }}" class="btn-secondary">← Анализировать другое изображение</a>
+</div>
+{% endblock %}

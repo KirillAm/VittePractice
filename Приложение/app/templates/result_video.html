@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Результаты анализа видео{% endblock %}
+
+{% block content %}
+<section class="section">
+    <h1>Результаты анализа видео</h1>
+    <p>
+        Ниже представлены исходный видеоролик и версия с наложенными рамками и подписями объектов.
+        Сводка по инвентаризации формируется по всем обработанным кадрам
+        (например, по выборке кадров через равные интервалы).
+    </p>
+
+    <div class="grid two-columns images-compare">
+        <div class="image-card">
+            <h2>Исходное видео</h2>
+            {% if orig_video_path %}
+                <div class="video-wrapper">
+                    <video controls preload="metadata">
+                        <source src="{{ orig_video_path }}" type="video/mp4">
+                        Ваш браузер не поддерживает встроенное видео. Вы можете скачать файл по
+                        <a href="{{ orig_video_path }}">ссылке</a>.
+                    </video>
+                </div>
+            {% else %}
+                <p>Исходное видео недоступно для отображения.</p>
+            {% endif %}
+        </div>
+
+        <div class="image-card">
+            <h2>Видео с обнаруженными объектами</h2>
+            {% if detected_video_path %}
+                <div class="video-wrapper">
+                    <video controls preload="metadata">
+                        <source src="{{ detected_video_path }}" type="video/mp4">
+                        Ваш браузер не поддерживает встроенное видео. Вы можете скачать файл по
+                        <a href="{{ detected_video_path }}">ссылке</a>.
+                    </video>
+                </div>
+            {% else %}
+                <p>
+                    Обработанная версия видео ещё не сгенерирована или сохранена только локально.
+                    Для демонстрации в отчёте можно использовать отдельные кадры с подсветкой объектов.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% if preview_frames %}
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Примеры кадров с детекцией</h2>
+    <p>
+        Ниже показаны несколько ключевых кадров из видеоролика с выделенными объектами.
+        Эти изображения удобно использовать в качестве иллюстраций в отчёте.
+    </p>
+
+    <div class="grid frames-grid">
+        {% for frame in preview_frames %}
+            <div class="image-card">
+                <h3>Кадр {{ loop.index }}</h3>
+                <div class="image-wrapper">
+                    <img src="{{ frame }}" alt="Кадр {{ loop.index }} с подсвеченными объектами">
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Инвентаризационная сводка (по видео)</h2>
+
+    {% set counts = inventory.class_counts %}
+    {% set missing = inventory.missing_items %}
+    {% set extra = inventory.extra_items %}
+    {% set workplaces = inventory.num_workplaces_estimate %}
+
+    <div class="grid two-columns">
+        <div>
+            <h3>Общая статистика по кадрам</h3>
+            <ul class="bullet-list">
+                <li>
+                    Оценочное количество рабочих мест по мониторам:
+                    <strong>{{ workplaces }}</strong>
+                </li>
+                <li>
+                    Всего обнаруженных объектов (по всем учтённым кадрам):
+                    <strong>{{ counts.values()|sum }}</strong>
+                </li>
+                {% if inventory.num_frames is defined %}
+                    <li>
+                        Число проанализированных кадров:
+                        <strong>{{ inventory.num_frames }}</strong>
+                    </li>
+                {% endif %}
+            </ul>
+
+            <h4>Количество объектов по классам</h4>
+            {% if counts %}
+                <div class="table-wrapper small">
+                    <table class="data-table compact">
+                        <thead>
+                        <tr>
+                            <th>Класс</th>
+                            <th>Количество (суммарно)</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for cls, cnt in counts.items()|sort %}
+                            <tr>
+                                <td>{{ cls }}</td>
+                                <td>{{ cnt }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p>На выбранных кадрах техника не обнаружена.</p>
+            {% endif %}
+        </div>
+
+        <div>
+            <h3>Недостающие и лишние элементы</h3>
+
+            <h4>Недостающие элементы относительно рабочих мест</h4>
+            {% if missing %}
+                <ul class="bullet-list">
+                    {% for cls, cnt in missing.items() %}
+                        <li>
+                            <strong>{{ cls }}</strong> — не хватает {{ cnt }} единиц относительно
+                            оценочного количества рабочих мест (по итогам анализа видео).
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>
+                    В рамках выбранной модели рабочего места (<code>monitor + cpu + keyboard + mouse</code>)
+                    явных критических недостач по видео не обнаружено.
+                </p>
+            {% endif %}
+
+            <h4>Лишние или посторонние объекты</h4>
+            {% if extra %}
+                <ul class="bullet-list">
+                    {% for cls, cnt in extra.items() %}
+                        <li><strong>{{ cls }}</strong> — {{ cnt }} шт. (по всем кадрам).</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Выраженных «лишних» объектов (за пределами базового набора периферии) не выявлено.</p>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+    <h2>Текстовый отчёт ИИ-ассистента</h2>
+    {% if report_text %}
+        <div class="report-block">
+            {{ report_text | safe }}
+        </div>
+    {% else %}
+        <p>
+            Текстовый отчёт по видео не был сформирован. Проверьте подключение к ProxyAPI
+            и обработку инвентаризационной статистики.
+        </p>
+    {% endif %}
+</section>
+
+<div class="section">
+    <a href="{{ url_for('main.index') }}" class="btn-secondary">← Анализировать другое видео или изображение</a>
+</div>
+{% endblock %}
