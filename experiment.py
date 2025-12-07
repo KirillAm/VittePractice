@@ -467,3 +467,138 @@ print("\nИтоговый список классов (объединённый)
 for i, name in enumerate(final_class_names):
     print(f"  {i}: {name}")
 print(f"Всего классов: {len(final_class_names)}")
+
+# Формирование объединённого датасета YOLO: копирование изображений и генерация разметки
+from collections import defaultdict
+
+# Создаём структуру каталогов для объединённого датасета
+for split in ["train", "val", "test"]:
+    (COMBINED_ROOT / "images" / split).mkdir(parents=True, exist_ok=True)
+    (COMBINED_ROOT / "labels" / split).mkdir(parents=True, exist_ok=True)
+
+image_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+
+combined_stats = {
+    "lab": defaultdict(int),
+    "ewaste": defaultdict(int),
+}
+
+# ---------- 1. Копирование и переиндексация LabEquipVis (Augmented Data) ----------
+
+lab_split_map = {
+    "train": "train",
+    "valid": "val",   # valid -> val
+    "test": "test",
+}
+
+print("\n=== Перенос LabEquipVis (Augmented Data) ===")
+
+for src_split, dst_split in lab_split_map.items():
+    src_img_dir = LAB_AUG_ROOT / src_split / "images"
+    src_lbl_dir = LAB_AUG_ROOT / src_split / "labels"
+
+    dst_img_dir = COMBINED_ROOT / "images" / dst_split
+    dst_lbl_dir = COMBINED_ROOT / "labels" / dst_split
+
+    if not src_img_dir.exists():
+        print(f"  [Пропуск] Нет каталога изображений {src_img_dir}")
+        continue
+
+    img_files = sorted([p for p in src_img_dir.iterdir()
+                        if p.is_file() and p.suffix.lower() in image_exts])
+
+    print(f"  Сплит {src_split} -> {dst_split}: найдено {len(img_files)} изображений.")
+
+    for img_path in img_files:
+        stem = img_path.stem
+        src_label_path = src_lbl_dir / f"{stem}.txt"
+        if not src_label_path.exists():
+            # На всякий случай защищаемся от рассинхронизации
+            # (в этом датасете такого быть не должно)
+            # Можно вывести предупреждение и пропустить изображение
+            # print(f"    [WARN] Для {img_path.name} не найден label {src_label_path.name}")
+            continue
+
+        new_stem = f"lab_{stem}"
+        dst_img_path = dst_img_dir / f"{new_stem}{img_path.suffix.lower()}"
+        dst_label_path = dst_lbl_dir / f"{new_stem}.txt"
+
+        # Копируем изображение
+        shutil.copy2(img_path, dst_img_path)
+
+        # Переписываем разметку с переиндексацией классов
+        with open(src_label_path, "r") as f_in, open(dst_label_path, "w") as f_out:
+            for line in f_in:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split()
+                old_cls = int(parts[0])
+                new_cls = lab_index_map[old_cls]
+                rest = parts[1:]
+                f_out.write(" ".join([str(new_cls)] + rest) + "\n")
+
+        combined_stats["lab"][dst_split] += 1
+
+print("Готово перенесён LabEquipVis.")
+
+
+# ---------- 2. Копирование и генерация разметки для E-waste ----------
+
+print("\n=== Перенос E-waste (modified-dataset) ===")
+
+for split in ["train", "val", "test"]:
+    split_dir = EW_MOD_ROOT / split
+    if not split_dir.exists():
+        print(f"  [Пропуск] Нет каталога сплита {split_dir}")
+        continue
+
+    dst_img_dir = COMBINED_ROOT / "images" / split
+    dst_lbl_dir = COMBINED_ROOT / "labels" / split
+
+    class_dirs = sorted([d for d in split_dir.iterdir() if d.is_dir()],
+                        key=lambda p: p.name)
+
+    total_images_in_split = 0
+
+    for class_dir in class_dirs:
+        orig_name = class_dir.name
+        if EWASTE_INCLUDED_CLASSES is not None and orig_name not in EWASTE_INCLUDED_CLASSES:
+            # этот класс мы решили не включать
+            continue
+
+        if orig_name not in ew_name_to_final_idx:
+            # класс не вошёл в итоговый словарь (например, был отфильтрован)
+            continue
+
+        cls_idx = ew_name_to_final_idx[orig_name]
+        canon_cls_name = canonical_name(orig_name)
+
+        img_files = sorted([p for p in class_dir.iterdir()
+                            if p.is_file() and p.suffix.lower() in image_exts])
+
+        for img_path in img_files:
+            total_images_in_split += 1
+            new_stem = f"ew_{split}_{canon_cls_name}_{img_path.stem}"
+            dst_img_path = dst_img_dir / f"{new_stem}{img_path.suffix.lower()}"
+            dst_label_path = dst_lbl_dir / f"{new_stem}.txt"
+
+            # Копируем изображение
+            shutil.copy2(img_path, dst_img_path)
+
+            # Для классификационного датасета делаем один бокс на весь кадр:
+            # x_center=0.5, y_center=0.5, width=1.0, height=1.0
+            with open(dst_label_path, "w") as f_out:
+                f_out.write(f"{cls_idx} 0.5 0.5 1.0 1.0\n")
+
+            combined_stats["ewaste"][split] += 1
+
+    print(f"  Сплит {split}: перенесено {total_images_in_split} изображений.")
+
+print("Готово перенесён E-waste.")
+
+print("\nСводная статистика по объединённому датасету:")
+for src_name, stats in combined_stats.items():
+    print(f"Источник: {src_name}")
+    for split, count in stats.items():
+        print(f"  {split}: {count} изображений")
