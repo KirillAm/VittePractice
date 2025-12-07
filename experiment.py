@@ -602,3 +602,47 @@ for src_name, stats in combined_stats.items():
     print(f"Источник: {src_name}")
     for split, count in stats.items():
         print(f"  {split}: {count} изображений")
+
+# Создание общего data.yaml и финальная проверка
+import yaml
+
+combined_yaml_path = COMBINED_ROOT / "data.yaml"
+
+data_yaml = {
+    "path": str(COMBINED_ROOT.resolve()),
+    "train": "images/train",
+    "val": "images/val",
+    "test": "images/test",
+    "nc": len(final_class_names),
+    # YOLO допускает как список, так и dict; сделаем dict {id: name}
+    "names": {i: name for i, name in enumerate(final_class_names)},
+}
+
+with open(combined_yaml_path, "w") as f:
+    yaml.safe_dump(data_yaml, f, sort_keys=False, allow_unicode=True)
+
+print("data.yaml для объединённого датасета сохранён по пути:")
+print(combined_yaml_path)
+
+print("\nИтоговый список классов:")
+for i, name in enumerate(final_class_names):
+    print(f"  {i}: {name}")
+
+# Быстрая проверка количества файлов в каждом сплите
+def count_files_in_dir(root: Path, ext_set):
+    root = Path(root)
+    count = 0
+    if not root.exists():
+        return 0
+    for p in root.iterdir():
+        if p.is_file() and p.suffix.lower() in ext_set:
+            count += 1
+    return count
+
+print("\nПроверка количества изображений в объединённом датасете:")
+for split in ["train", "val", "test"]:
+    img_dir = COMBINED_ROOT / "images" / split
+    lbl_dir = COMBINED_ROOT / "labels" / split
+    n_img = count_files_in_dir(img_dir, {".jpg", ".jpeg", ".png", ".bmp"})
+    n_lbl = count_files_in_dir(lbl_dir, {".txt"})
+    print(f"  {split}: {n_img} изображений, {n_lbl} файлов разметки")
