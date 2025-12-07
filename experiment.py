@@ -39,3 +39,13 @@ print(f"Python version: {sys.version}")
 # На всякий случай переходим в корень проекта
 os.chdir(PROJECT_ROOT)
 print("Текущая рабочая директория:", os.getcwd())
+
+# Установка необходимых библиотек (YOLOv8, Kaggle и утилиты)
+
+# Флаг quiet=-q уменьшает шум от pip, но при необходимости можно убрать, чтобы видеть полный лог.
+!pip install -q ultralytics kaggle opencv-python matplotlib pandas numpy tqdm
+
+# Быстрая проверка, что ultralytics установился
+from ultralytics import YOLO
+
+print("Ultralytics YOLO успешно импортирован.")
