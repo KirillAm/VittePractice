@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Умный глаз для компьютерных аудиторий{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    {# Базовое описание для отчёта/SEO #}
+    <meta name="description"
+          content="Веб-приложение для автоматического распознавания и инвентаризации оборудования в компьютерных аудиториях на основе модели YOLOv8.">
+
+    {# Подключаем кастомные стили #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {# Можно подключить системные шрифты/иконки по вкусу #}
+</head>
+<body>
+<header class="site-header">
+    <div class="container header-inner">
+        <div class="brand">
+            <a href="{{ url_for('main.index') }}" class="brand-link">
+                <span class="brand-title">Умный глаз</span>
+                <span class="brand-subtitle">компьютерные аудитории МУИВ</span>
+            </a>
+        </div>
+        <nav class="main-nav">
+            <a href="{{ url_for('main.index') }}">Главная</a>
+            <a href="#how-it-works">Как это работает</a>
+            <a href="#about-model">Модель</a>
+        </nav>
+    </div>
+</header>
+
+<main class="site-main">
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</main>
+
+<footer class="site-footer">
+    <div class="container footer-inner">
+        <div class="footer-text">
+            <p>Система инвентаризации оборудования в компьютерных аудиториях на основе YOLOv8 и ИИ-ассистента.</p>
+            <p class="footer-muted">Демонстрационный прототип для учебных целей и ВКР.</p>
+        </div>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
