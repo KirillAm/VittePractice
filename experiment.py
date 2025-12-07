@@ -81,3 +81,11 @@ os.chmod(kaggle_config_path, 0o600)
 os.environ["KAGGLE_CONFIG_DIR"] = str(kaggle_dir)
 
 print("kaggle.json успешно сохранён в", kaggle_config_path)
+
+# Проверка работы Kaggle API
+
+# Проверим, что kaggle установлен и видит наш конфиг
+!kaggle --version
+
+print("\nПробуем найти датасет LabEquipVis на Kaggle (по ключевому слову 'labequipvis'):")
+!kaggle datasets list -s "labequipvis" | head -n 10
