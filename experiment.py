@@ -253,3 +253,60 @@ for current_root, dirs, files in os.walk(lab_root):
             num_label_txt += 1
 
 print(f"\nLabEquipVis: найдено изображений: {num_images}, файлов разметки (.txt): {num_label_txt}")
+
+# Скачивание и первичный осмотр E Waste Image Dataset
+ew_cfg = DATASETS["ewaste"]
+ew_root = ew_cfg["root_dir"]
+
+download_and_unzip_kaggle_dataset(
+    kaggle_id=ew_cfg["kaggle_id"],
+    target_dir=ew_root,
+    force_download=False,
+)
+
+# В этом датасете все нужные сплиты лежат в подпапке modified-dataset
+ew_modified_root = ew_root / "modified-dataset"
+if not ew_modified_root.exists():
+    print(
+        "\nПапка modified-dataset не найдена, покажем общую структуру датасета "
+        "и остановимся, чтобы не накосячить."
+    )
+    show_dir_tree(ew_root, max_depth=4, max_files_per_dir=5)
+else:
+    print("\nИспользуем корень E-waste датасета:", ew_modified_root)
+    show_dir_tree(ew_modified_root, max_depth=3, max_files_per_dir=5)
+
+    # Ищем директории train / val / test рекурсивно
+    split_dirs = find_split_dirs_recursive(ew_modified_root)
+
+    if not split_dirs:
+        print("\nНе удалось найти директории train/val/test даже рекурсивно. Проверьте структуру вручную.")
+    else:
+        print("\nНайдены директории сплитов E-waste (modified-dataset):")
+        for split_name, split_path in split_dirs.items():
+            print(f"  {split_name} -> {split_path}")
+
+        # Для каждого сплита выводим список классов и количество изображений по классам
+        image_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+
+        for split_name, split_path in split_dirs.items():
+            print(f"\n=== Сплит: {split_name} ===")
+            # Внутри сплита лежат папки классов
+            classes = [d for d in split_path.iterdir() if d.is_dir()]
+            if not classes:
+                print("  В этом сплите не найдены подкаталоги классов.")
+                continue
+
+            class_counts = {}
+            for class_dir in sorted(classes, key=lambda p: p.name):
+                count = 0
+                for fname in class_dir.iterdir():
+                    if fname.is_file() and fname.suffix.lower() in image_exts:
+                        count += 1
+                class_counts[class_dir.name] = count
+
+            total_images = sum(class_counts.values())
+            print(f"  Всего изображений в сплите: {total_images}")
+            print("  Классы и количество изображений:")
+            for cls_name, cls_count in class_counts.items():
+                print(f"    {cls_name}: {cls_count}")
