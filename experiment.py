@@ -646,3 +646,63 @@ for split in ["train", "val", "test"]:
     n_img = count_files_in_dir(img_dir, {".jpg", ".jpeg", ".png", ".bmp"})
     n_lbl = count_files_in_dir(lbl_dir, {".txt"})
     print(f"  {split}: {n_img} изображений, {n_lbl} файлов разметки")
+
+"""### Шаг 4. Базовое обучение YOLOv8n на объединённом датасете
+
+На этом шаге мы:
+
+1. Подгружаем путь к объединённому датасету `combined_yolo/data.yaml` и проверяем список классов.
+2. Запускаем обучение модели **YOLOv8n** (лёгкий вариант) на объединённом датасете:
+   * используем предобученные веса `yolov8n.pt` (обучение с дообучением, а не «с нуля»);
+   * задаём размер изображения `640`, количество эпох (по умолчанию 50) и размер батча;
+   * включаем раннюю остановку по `patience`, чтобы не тратить лишнее GPU-время в Colab.
+3. После обучения:
+   * берём **best-weights** модели;
+   * валидируем её отдельно на `test`-сплите совмещённого датасета;
+   * сохраняем веса в папку `models/` и визуализируем несколько примеров предсказаний из `test`.
+
+При необходимости параметры обучения (число эпох, размер батча, imgsz и т.п.) можно позже подправить под ограничения конкретной сессии Colab.
+"""
+
+# Подготовка: пути, загрузка data.yaml, проверка классов
+from pathlib import Path
+import yaml
+import torch
+
+# Базовые пути (на случай перезапуска ядра)
+try:
+    PROJECT_ROOT
+except NameError:
+    PROJECT_ROOT = Path("/content") / "computer_lab_detector"
+
+RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+COMBINED_ROOT = PROCESSED_DATA_DIR / "combined_yolo"
+MODELS_DIR = PROJECT_ROOT / "models"
+RUNS_DIR = PROJECT_ROOT / "runs"
+
+for p in [MODELS_DIR, RUNS_DIR]:
+    p.mkdir(parents=True, exist_ok=True)
+
+combined_yaml_path = COMBINED_ROOT / "data.yaml"
+if not combined_yaml_path.exists():
+    raise FileNotFoundError(f"Не найден объединённый data.yaml: {combined_yaml_path}")
+
+print("Используем датасет:", combined_yaml_path)
+
+with open(combined_yaml_path, "r") as f:
+    data_yaml = yaml.safe_load(f)
+
+class_names = data_yaml.get("names")
+if isinstance(class_names, dict):
+    # dict {id: name} -> список по индексу
+    class_names_list = [class_names[i] for i in sorted(class_names.keys())]
+else:
+    class_names_list = list(class_names)
+
+print("\nКлассы датасета:")
+for i, name in enumerate(class_names_list):
+    print(f"  {i}: {name}")
+
+device = 0 if torch.cuda.is_available() else "cpu"
+print("\nCUDA доступна:", torch.cuda.is_available(), "| device:", device)
