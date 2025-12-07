@@ -813,3 +813,61 @@ for img_path in sample_paths:
     # OpenCV/YOLO обычно используют BGR, но plot уже выдаёт в формате для визуализации
     plt.imshow(vis_img)
     plt.show()
+
+"""### Шаг 5. Анализ обучения и построение графиков
+
+На этом шаге мы:
+
+1. Подгружаем результаты эксперимента `yolov8n_combined_v1` и отображаем
+   стандартные графики Ultralytics:
+   * `results.png` — динамика лоссов и метрик по эпохам;
+   * `confusion_matrix*.png`, `P_curve.png`, `R_curve.png`, `F1_curve.png`, `PR_curve.png`.
+2. Отдельно отображаем графики из директории `runs/detect/val` для тестового сплита.
+3. Строим собственные графики по `results.csv`:
+   * потери `box_loss`, `cls_loss`, `dfl_loss` (train/val);
+   * метрики `precision`, `recall`, `mAP50`, `mAP50–95` по эпохам.
+
+Эти визуализации потом можно вставлять в отчёт (как минимум общие кривые обучения и PR/F1-кривые).
+"""
+
+# Путь к эксперименту и стандартные графики Ultralytics
+from pathlib import Path
+from IPython.display import Image, display
+
+# Базовые пути (если ядро перезапускалось)
+try:
+    PROJECT_ROOT
+except NameError:
+    PROJECT_ROOT = Path("/content") / "computer_lab_detector"
+
+RUNS_DIR = PROJECT_ROOT / "runs"
+
+# Каталог обучения
+train_run_dir = RUNS_DIR / "yolov8n_combined_v1"
+if not train_run_dir.exists():
+    raise FileNotFoundError(f"Каталог эксперимента не найден: {train_run_dir}")
+
+print("Каталог обучения:", train_run_dir)
+
+def show_if_exists(path: Path, title: str = None):
+    """Удобная функция: показываем картинку, если она существует."""
+    if path.exists():
+        if title:
+            print("\n", title)
+        display(Image(filename=str(path)))
+    else:
+        print(f"[WARN] Файл не найден: {path}")
+
+
+# 1) Общие результаты обучения (лоссы и метрики по эпохам)
+show_if_exists(train_run_dir / "results.png", "Кривые обучения (results.png)")
+
+# 2) Матрицы ошибок
+show_if_exists(train_run_dir / "confusion_matrix.png", "Матрица ошибок (сырые значения)")
+show_if_exists(train_run_dir / "confusion_matrix_normalized.png", "Матрица ошибок (нормированная)")
+
+# 3) Кривые P/R/F1/PR
+show_if_exists(train_run_dir / "P_curve.png", "P-curve (precision vs threshold)")
+show_if_exists(train_run_dir / "R_curve.png", "R-curve (recall vs threshold)")
+show_if_exists(train_run_dir / "F1_curve.png", "F1-curve (F1 vs threshold)")
+show_if_exists(train_run_dir / "PR_curve.png", "PR-curve (precision–recall)")
