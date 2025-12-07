@@ -746,3 +746,70 @@ if not best_weights_path.exists():
     raise FileNotFoundError(
         f"best.pt не найден по пути {best_weights_path}. Проверь логи обучения."
     )
+
+# Валидация лучшей модели на test-сплите и сохранение весов в models/
+from ultralytics import YOLO
+
+# Загружаем лучшую модель по результатам обучения
+best_model = YOLO(str(best_weights_path))
+
+# Отдельная оценка на test-сплите объединённого датасета
+test_results = best_model.val(
+    data=str(combined_yaml_path),
+    split="test",
+    imgsz=IMG_SIZE,
+    batch=TRAIN_BATCH,
+    device=device,
+    verbose=True,
+)
+
+print("\nРезультаты на test-сплите (основные метрики):")
+# В новых версиях ultralytics есть поле results_dict
+if hasattr(test_results, "results_dict"):
+    for k, v in test_results.results_dict.items():
+        print(f"  {k}: {v}")
+else:
+    # fallback — просто вывести объект
+    print(test_results)
+
+# Копируем best.pt в папку models для удобства использования во Flask
+final_weights_path = MODELS_DIR / "yolov8n_combined_best.pt"
+shutil.copy2(best_weights_path, final_weights_path)
+
+print("\nФинальные веса сохранены как:")
+print(final_weights_path)
+
+# Визуализация нескольких предсказаний на тестовых изображениях
+import random
+import matplotlib.pyplot as plt
+import numpy as np
+
+test_images_dir = COMBINED_ROOT / "images" / "test"
+
+# Собираем список изображений (берём самые распространённые расширения)
+test_image_paths = []
+for ext in ("*.jpg", "*.jpeg", "*.png", "*.bmp"):
+    test_image_paths.extend(test_images_dir.glob(ext))
+
+if not test_image_paths:
+    raise RuntimeError(f"В {test_images_dir} не найдено ни одного изображения.")
+
+# Выберем несколько случайных картинок
+num_samples = 4
+sample_paths = random.sample(test_image_paths, k=min(num_samples, len(test_image_paths)))
+
+print(f"Покажем примеры предсказаний для {len(sample_paths)} тестовых изображений.")
+
+for img_path in sample_paths:
+    print("\nИзображение:", img_path.name)
+    results = best_model(str(img_path), imgsz=IMG_SIZE, device=device, verbose=False)
+
+    # results[0].plot() возвращает изображение с нарисованными боксами (numpy array)
+    vis_img = results[0].plot()
+
+    plt.figure(figsize=(6, 6))
+    plt.title(img_path.name)
+    plt.axis("off")
+    # OpenCV/YOLO обычно используют BGR, но plot уже выдаёт в формате для визуализации
+    plt.imshow(vis_img)
+    plt.show()
