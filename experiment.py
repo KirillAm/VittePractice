@@ -49,3 +49,35 @@ print("Текущая рабочая директория:", os.getcwd())
 from ultralytics import YOLO
 
 print("Ultralytics YOLO успешно импортирован.")
+
+# Загрузка kaggle.json через files.upload() и настройка Kaggle API
+import os
+from google.colab import files
+
+# Загружаем kaggle.json вручную с локального компьютера
+print("Выберите файл kaggle.json (скачанный с вашего аккаунта Kaggle).")
+uploaded_files = files.upload()
+
+if "kaggle.json" not in uploaded_files:
+    raise RuntimeError(
+        "Файл kaggle.json не найден среди загруженных. "
+        "Убедитесь, что выбрали правильный файл и повторите загрузку."
+    )
+
+# Создаём каталог для конфигурации Kaggle
+kaggle_dir = Path("/root/.kaggle")
+kaggle_dir.mkdir(parents=True, exist_ok=True)
+
+kaggle_config_path = kaggle_dir / "kaggle.json"
+
+# Сохраняем загруженный kaggle.json в /root/.kaggle
+with open(kaggle_config_path, "wb") as f:
+    f.write(uploaded_files["kaggle.json"])
+
+# Ограничиваем права доступа к файлу (обязательно для Kaggle API)
+os.chmod(kaggle_config_path, 0o600)
+
+# На всякий случай укажем путь к конфигу через переменную окружения
+os.environ["KAGGLE_CONFIG_DIR"] = str(kaggle_dir)
+
+print("kaggle.json успешно сохранён в", kaggle_config_path)
