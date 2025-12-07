@@ -1,0 +1,480 @@
+/* --------------------------------------------------
+   Базовые настройки
+-------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #111827;
+    background-color: #f3f4f6;
+}
+
+/* --------------------------------------------------
+   Контейнеры и сетка
+-------------------------------------------------- */
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.site-main {
+    padding: 1.5rem 0 2.5rem;
+}
+
+/* Базовая сетка */
+.grid {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.grid.two-columns {
+    grid-template-columns: 1.2fr 1fr;
+}
+
+/* Сетка для кадров видео */
+.frames-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Адаптивность */
+@media (max-width: 900px) {
+    .grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .images-compare {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* --------------------------------------------------
+   Шапка и подвал
+-------------------------------------------------- */
+
+.site-header {
+    background-color: #111827;
+    color: #f9fafb;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #1f2937;
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.brand-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.brand-title {
+    display: block;
+    font-weight: 600;
+    font-size: 1.2rem;
+    letter-spacing: 0.02em;
+}
+
+.brand-subtitle {
+    display: block;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+.main-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.95rem;
+}
+
+.main-nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.main-nav a:hover {
+    background-color: #1f2933;
+    color: #ffffff;
+}
+
+.site-footer {
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    padding: 1.25rem 0;
+    color: #6b7280;
+    font-size: 0.9rem;
+}
+
+.footer-inner {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+}
+
+.footer-muted {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: #9ca3af;
+}
+
+/* --------------------------------------------------
+   Секции и текст
+-------------------------------------------------- */
+
+.section {
+    margin: 2rem 0;
+}
+
+.section h1,
+.section h2 {
+    margin-top: 0;
+}
+
+.section h1 {
+    font-size: 1.6rem;
+    margin-bottom: 0.75rem;
+}
+
+.section h2 {
+    font-size: 1.35rem;
+    margin-bottom: 0.5rem;
+}
+
+.section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.4rem;
+}
+
+.section p {
+    margin: 0.3rem 0 0.6rem;
+}
+
+.section-divider {
+    border: 0;
+    border-top: 1px solid #e5e7eb;
+    margin: 2rem 0;
+}
+
+/* Маркированные и нумерованные списки */
+
+.bullet-list,
+.steps-list {
+    margin: 0.5rem 0 0;
+    padding-left: 1.4rem;
+}
+
+.bullet-list li,
+.steps-list li {
+    margin: 0.25rem 0;
+}
+
+.steps-list li + li {
+    margin-top: 0.45rem;
+}
+
+/* --------------------------------------------------
+   Hero-блок и форма загрузки
+-------------------------------------------------- */
+
+.hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    margin: 1.5rem 0 1.75rem;
+    align-items: center;
+}
+
+.hero-text h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
+}
+
+.hero-text p {
+    margin-bottom: 0.5rem;
+}
+
+.hero-upload {
+    background-color: #ffffff;
+    padding: 1.2rem;
+    border-radius: 0.8rem;
+    box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e5e7eb;
+}
+
+@media (max-width: 900px) {
+    .hero {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Drop-zone */
+
+.drop-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 0.75rem;
+    padding: 1.6rem 1.2rem;
+    text-align: center;
+    background-color: #f9fafb;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.drop-zone:hover {
+    border-color: #4f46e5;
+    background-color: #eef2ff;
+}
+
+.drop-zone-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 500;
+}
+
+.drop-zone-subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.file-input {
+    display: none;
+}
+
+/* Информация о выбранном файле */
+
+.file-info {
+    margin-top: 0.6rem;
+    font-size: 0.9rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #374151;
+}
+
+.file-info.hidden {
+    display: none;
+}
+
+#file-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+}
+
+/* Кнопки */
+
+.btn-primary,
+.btn-secondary,
+.btn-link {
+    font: inherit;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem 1.2rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.btn-primary {
+    background-color: #4f46e5;
+    color: #ffffff;
+    box-shadow: 0 10px 15px rgba(79, 70, 229, 0.25);
+}
+
+.btn-primary:hover {
+    background-color: #4338ca;
+    box-shadow: 0 12px 22px rgba(79, 70, 229, 0.35);
+}
+
+.btn-secondary {
+    background-color: #e5e7eb;
+    color: #111827;
+    border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+    background-color: #d1d5db;
+    border-color: #9ca3af;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #2563eb;
+    box-shadow: none;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+/* Контейнер с кнопкой Анализировать и подсказкой */
+
+.upload-controls {
+    margin-top: 0.9rem;
+}
+
+.upload-hint {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+}
+
+/* --------------------------------------------------
+   Карточки, изображения, видео
+-------------------------------------------------- */
+
+.info-card,
+.image-card {
+    background-color: #ffffff;
+    border-radius: 0.75rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+}
+
+.info-card h3 {
+    margin-top: 0;
+}
+
+.images-compare {
+    margin-top: 1.2rem;
+}
+
+.image-wrapper,
+.video-wrapper {
+    margin-top: 0.6rem;
+    border-radius: 0.75rem;
+    overflow: hidden;
+    background-color: #111827;
+}
+
+.image-wrapper img,
+.video-wrapper video {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* --------------------------------------------------
+   Таблицы
+-------------------------------------------------- */
+
+.table-wrapper {
+    margin-top: 0.7rem;
+    overflow-x: auto;
+}
+
+.table-wrapper.small {
+    max-width: 420px;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    background-color: #ffffff;
+}
+
+.data-table th,
+.data-table td {
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: top;
+}
+
+.data-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.data-table tr:nth-child(even) td {
+    background-color: #f9fafb;
+}
+
+.data-table.compact th,
+.data-table.compact td {
+    padding: 0.3rem 0.45rem;
+    font-size: 0.85rem;
+}
+
+/* --------------------------------------------------
+   Блок отчёта
+-------------------------------------------------- */
+
+.report-block {
+    margin-top: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    background-color: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #111827;
+    white-space: pre-wrap;
+}
+
+/* --------------------------------------------------
+   Прочее и вспомогательное
+-------------------------------------------------- */
+
+.images-compare .image-card h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.2rem;
+}
+
+/* Для ссылок в тексте */
+
+a {
+    color: #2563eb;
+}
+
+a:hover {
+    color: #1d4ed8;
+}
+
+/* Мелкая типографика */
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", monospace;
+    font-size: 0.9em;
+    background-color: #e5e7eb;
+    padding: 0 0.25rem;
+    border-radius: 0.25rem;
+}
+
+/* Простейшая анимация для drop-zone при перетаскивании (можно использовать в JS) */
+
+.drop-zone.dragover {
+    border-color: #10b981;
+    background-color: #ecfdf5;
+}
