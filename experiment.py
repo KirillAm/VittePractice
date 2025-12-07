@@ -89,3 +89,140 @@ print("kaggle.json успешно сохранён в", kaggle_config_path)
 
 print("\nПробуем найти датасет LabEquipVis на Kaggle (по ключевому слову 'labequipvis'):")
 !kaggle datasets list -s "labequipvis" | head -n 10
+
+"""### Шаг 2. Загрузка и первичная организация датасетов LabEquipVis и E-Waste
+
+На этом шаге мы:
+
+1. Скачиваем два датасета с Kaggle при помощи Kaggle CLI:
+   * **LabEquipVis: Dataset of Computer Lab Equipment** — изображения компьютерных лабораторий с разметкой в формате YOLO.
+   * **E Waste Image Dataset** (`akshat103/e-waste-image-dataset`) — изображения 10 типов электронных устройств, разложенные по папкам классов внутри директорий `train`, `val`, `test` в подпапке `modified-dataset`.
+2. Распаковываем архивы в подкаталоги `data/raw/labequipvis/` и `data/raw/e_waste_image_dataset/`.
+3. Выполняем быстрый «sanity check»:
+   * для **LabEquipVis** подсчитываем количество изображений и файлов разметки (`.txt`);
+   * для **E-waste** выводим список классов и количество изображений в каждом сплите (`train`, `val`, `test`) из `modified-dataset`.
+
+Это подготовит «сырой» слой данных (`raw`), который затем будет конвертирован в единый формат YOLO для общего датасета «компьютерные классы».
+
+"""
+
+# Конфигурация путей и вспомогательные функции
+
+import os
+from pathlib import Path
+import zipfile
+
+# Если проект не инициализировали на шаге 1 (или запущен новый сеанс), создаём пути заново
+try:
+    PROJECT_ROOT
+except NameError:
+    PROJECT_ROOT = Path("/content") / "computer_lab_detector"
+    RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+    PROCESSED_DATA_DIR = PROJECT_ROOT / "data" / "processed"
+    MODELS_DIR = PROJECT_ROOT / "models"
+    RUNS_DIR = PROJECT_ROOT / "runs"
+
+    for p in [PROJECT_ROOT, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODELS_DIR, RUNS_DIR]:
+        p.mkdir(parents=True, exist_ok=True)
+
+print("PROJECT_ROOT:", PROJECT_ROOT)
+print("RAW_DATA_DIR:", RAW_DATA_DIR)
+
+# Описание используемых датасетов
+DATASETS = {
+    "labequipvis": {
+        "kaggle_id": "bmshahriaalam/labequipvis-dataset-of-computer-lab-equipment",
+        "root_dir": RAW_DATA_DIR / "labequipvis",
+    },
+    "ewaste": {
+        "kaggle_id": "akshat103/e-waste-image-dataset",
+        "root_dir": RAW_DATA_DIR / "e_waste_image_dataset",
+    },
+}
+
+
+def download_and_unzip_kaggle_dataset(kaggle_id: str, target_dir: Path, force_download: bool = False):
+    """
+    Скачивает датасет с Kaggle и распаковывает архив в целевую директорию.
+
+    kaggle_id      — строка формата "owner/dataset-name"
+    target_dir     — путь, куда сложить zip и распакованный контент
+    force_download — если True, перекачивает архив даже если он уже есть
+    """
+    target_dir = Path(target_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    slug = kaggle_id.split("/")[-1]
+    zip_path = target_dir / f"{slug}.zip"
+
+    if force_download or not zip_path.exists():
+        print(f"\n=== Скачиваем {kaggle_id} в {target_dir} ===")
+        exit_code = os.system(
+            f'kaggle datasets download -d {kaggle_id} -p "{target_dir}" --force'
+        )
+        if exit_code != 0:
+            raise RuntimeError(
+                f"Ошибка при скачивании датасета {kaggle_id}. "
+                "Проверьте доступность датасета и настройки Kaggle."
+            )
+        if not zip_path.exists():
+            # если вдруг архив назван иначе — берём первый попавшийся .zip
+            zips = list(target_dir.glob("*.zip"))
+            if not zips:
+                raise RuntimeError(
+                    f"После скачивания не найден zip-файл в {target_dir}."
+                )
+            zip_path = zips[0]
+
+    print(f"Архив найден: {zip_path.name}")
+
+    print(f"Распаковываем архив в {target_dir} ...")
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        zf.extractall(target_dir)
+
+    print("Распаковка завершена.")
+
+
+def show_dir_tree(root: Path, max_depth: int = 2, max_files_per_dir: int = 5):
+    """
+    Красивый вывод структуры каталогов (ограниченной глубины),
+    чтобы не захламлять вывод десятками тысяч строк.
+    """
+    root = Path(root)
+    print(f"\nСтруктура каталога: {root}")
+    root_depth = len(root.parts)
+
+    for current_root, dirs, files in os.walk(root):
+        current_path = Path(current_root)
+        depth = len(current_path.parts) - root_depth
+        if depth > max_depth:
+            continue
+
+        indent = "  " * depth
+        print(f"{indent}{current_path.name}/")
+
+        files_sorted = sorted(files)
+        for fname in files_sorted[:max_files_per_dir]:
+            print(f"{indent}  {fname}")
+        if len(files_sorted) > max_files_per_dir:
+            print(f"{indent}  ... и ещё {len(files_sorted) - max_files_per_dir} файлов")
+
+    print("—" * 60)
+
+
+def find_split_dirs_recursive(root: Path):
+    """
+    Рекурсивно ищет директории train / val / test (без учёта регистра)
+    и возвращает словарь {имя_сплита: Path}.
+    """
+    root = Path(root)
+    split_dirs = {}
+    target_names = {"train", "test", "val", "valid", "validation"}
+
+    for current_root, dirs, files in os.walk(root):
+        for d in dirs:
+            name_lower = d.lower()
+            if name_lower in target_names:
+                split_dirs[name_lower] = Path(current_root) / d
+
+    return split_dirs
