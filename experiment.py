@@ -871,3 +871,116 @@ show_if_exists(train_run_dir / "P_curve.png", "P-curve (precision vs threshold)"
 show_if_exists(train_run_dir / "R_curve.png", "R-curve (recall vs threshold)")
 show_if_exists(train_run_dir / "F1_curve.png", "F1-curve (F1 vs threshold)")
 show_if_exists(train_run_dir / "PR_curve.png", "PR-curve (precision–recall)")
+
+# Графики для тестового сплита (runs/detect/val)
+detect_val_dir = RUNS_DIR / "detect" / "val"
+print("Каталог результатов на test-сплите:", detect_val_dir)
+
+show_if_exists(detect_val_dir / "results.png", "Результаты на test-сплите (results.png)")
+show_if_exists(detect_val_dir / "confusion_matrix.png", "Матрица ошибок (test)")
+show_if_exists(detect_val_dir / "confusion_matrix_normalized.png", "Матрица ошибок (test, нормированная)")
+show_if_exists(detect_val_dir / "PR_curve.png", "PR-кривые по классам (test)")
+show_if_exists(detect_val_dir / "F1_curve.png", "F1-кривые по классам (test)")
+
+# Свои графики по results.csv: лоссы и метрики по эпохам
+import pandas as pd
+import matplotlib.pyplot as plt
+
+results_csv = train_run_dir / "results.csv"
+if not results_csv.exists():
+    raise FileNotFoundError(f"Файл results.csv не найден: {results_csv}")
+
+df = pd.read_csv(results_csv)
+print("Столбцы results.csv:", list(df.columns))
+
+# В YOLOv8 эпоха начинается с 0, для графиков удобнее +1
+epochs = df["epoch"] + 1
+
+# --------- Лоссы: box / cls / dfl ---------
+plt.figure(figsize=(8, 5))
+if "train/box_loss" in df.columns and "val/box_loss" in df.columns:
+    plt.plot(epochs, df["train/box_loss"], label="train box_loss")
+    plt.plot(epochs, df["val/box_loss"], label="val box_loss")
+if "train/cls_loss" in df.columns and "val/cls_loss" in df.columns:
+    plt.plot(epochs, df["train/cls_loss"], label="train cls_loss", linestyle="--")
+    plt.plot(epochs, df["val/cls_loss"], label="val cls_loss", linestyle="--")
+if "train/dfl_loss" in df.columns and "val/dfl_loss" in df.columns:
+    plt.plot(epochs, df["train/dfl_loss"], label="train dfl_loss", linestyle=":")
+    plt.plot(epochs, df["val/dfl_loss"], label="val dfl_loss", linestyle=":")
+
+plt.xlabel("Эпоха")
+plt.ylabel("Loss")
+plt.title("Динамика потерь на обучении и валидации")
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# --------- Метрики: precision, recall ---------
+plt.figure(figsize=(8, 5))
+if "metrics/precision(B)" in df.columns:
+    plt.plot(epochs, df["metrics/precision(B)"], label="Precision")
+if "metrics/recall(B)" in df.columns:
+    plt.plot(epochs, df["metrics/recall(B)"], label="Recall")
+plt.xlabel("Эпоха")
+plt.ylabel("Значение метрики")
+plt.title("Динамика Precision и Recall по эпохам")
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# --------- Метрики: mAP50 и mAP50-95 ---------
+plt.figure(figsize=(8, 5))
+if "metrics/mAP50(B)" in df.columns:
+    plt.plot(epochs, df["metrics/mAP50(B)"], label="mAP@0.50")
+if "metrics/mAP50-95(B)" in df.columns:
+    plt.plot(epochs, df["metrics/mAP50-95(B)"], label="mAP@0.50–0.95")
+plt.xlabel("Эпоха")
+plt.ylabel("mAP")
+plt.title("Динамика mAP по эпохам")
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Столбчатый график mAP50 по классам с тестового сплита
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Берём словарь per_class_metrics из последней валидации test.
+try:
+    test_results  # проверяем, существует ли объект
+except NameError:
+    from ultralytics import YOLO
+    best_weights_path = MODELS_DIR / "yolov8n_combined_best.pt"
+    if not best_weights_path.exists():
+        raise FileNotFoundError(f"Не найдены финальные веса: {best_weights_path}")
+    best_model = YOLO(str(best_weights_path))
+    test_results = best_model.val(
+        data=str(combined_yaml_path),
+        split="test",
+        imgsz=640,
+        batch=16,
+        device=0 if torch.cuda.is_available() else "cpu",
+        verbose=False,
+    )
+
+# В новых версиях Ultralytics per-class AP хранятся в results.box.maps (mAP50-95 по классам)
+per_class_map = getattr(test_results.box, "maps", None)
+if per_class_map is None:
+    print("Не удалось извлечь per-class mAP из объекта test_results.")
+else:
+    per_class_map = np.array(per_class_map)
+    num_classes = len(per_class_map)
+    indices = np.arange(num_classes)
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(indices, per_class_map)
+    plt.xticks(indices, class_names_list, rotation=45, ha="right")
+    plt.ylabel("mAP@0.50–0.95")
+    plt.title("mAP по классам на test-сплите")
+    plt.grid(axis="y", alpha=0.3)
+    plt.tight_layout()
+    plt.show()
