@@ -706,3 +706,43 @@ for i, name in enumerate(class_names_list):
 
 device = 0 if torch.cuda.is_available() else "cpu"
 print("\nCUDA доступна:", torch.cuda.is_available(), "| device:", device)
+
+# Обучение YOLOv8n на объединённом датасете
+
+from ultralytics import YOLO
+
+# Загружаем предобученную модель YOLOv8n (COCO)
+model = YOLO("yolov8n.pt")
+
+# Настройки обучения — при желании подправь epochs / batch
+TRAIN_EPOCHS = 50          # можно уменьшить до 30 в слабой сессии
+TRAIN_BATCH = 16           # уменьшить до 8, если не хватает памяти
+IMG_SIZE = 640
+
+train_results = model.train(
+    data=str(combined_yaml_path),   # путь к data.yaml
+    imgsz=IMG_SIZE,
+    epochs=TRAIN_EPOCHS,
+    batch=TRAIN_BATCH,
+    workers=2,                      # в Colab достаточно 2, чтобы не ловить баги
+    device=device,
+    project=str(RUNS_DIR),          # /content/computer_lab_detector/runs
+    name="yolov8n_combined_v1",     # имя эксперимента
+    exist_ok=True,                  # не ругаться, если папка уже есть
+    seed=42,
+    patience=15,                    # ранняя остановка по валидации
+    verbose=True,
+)
+
+print("\nОбучение завершено.")
+# В ultralytics после train у модели есть объект trainer с путём к run-директории
+run_dir = Path(model.trainer.save_dir)
+print("Каталог эксперимента:", run_dir)
+
+best_weights_path = run_dir / "weights" / "best.pt"
+print("Путь к лучшим весам:", best_weights_path)
+
+if not best_weights_path.exists():
+    raise FileNotFoundError(
+        f"best.pt не найден по пути {best_weights_path}. Проверь логи обучения."
+    )
