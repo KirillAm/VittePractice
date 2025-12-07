@@ -226,3 +226,30 @@ def find_split_dirs_recursive(root: Path):
                 split_dirs[name_lower] = Path(current_root) / d
 
     return split_dirs
+
+# Скачивание и первичный осмотр LabEquipVis
+lab_cfg = DATASETS["labequipvis"]
+lab_root = lab_cfg["root_dir"]
+
+download_and_unzip_kaggle_dataset(
+    kaggle_id=lab_cfg["kaggle_id"],
+    target_dir=lab_root,
+    force_download=False,
+)
+
+show_dir_tree(lab_root, max_depth=3, max_files_per_dir=5)
+
+# Быстрый подсчёт количества изображений и файлов разметки (.txt)
+image_exts = {".jpg", ".jpeg", ".png", ".bmp"}
+num_images = 0
+num_label_txt = 0
+
+for current_root, dirs, files in os.walk(lab_root):
+    for fname in files:
+        ext = Path(fname).suffix.lower()
+        if ext in image_exts:
+            num_images += 1
+        elif ext == ".txt":
+            num_label_txt += 1
+
+print(f"\nLabEquipVis: найдено изображений: {num_images}, файлов разметки (.txt): {num_label_txt}")
