@@ -1,0 +1,24 @@
+path: /content/computer_lab_detector/data/processed/combined_yolo
+train: images/train
+val: images/val
+test: images/test
+nc: 18
+names:
+  0: ac
+  1: chair
+  2: cpu
+  3: digital_board
+  4: fire_extinguisher
+  5: keyboard
+  6: light
+  7: monitor
+  8: mouse
+  9: projector
+  10: battery
+  11: microwave
+  12: mobile
+  13: pcb
+  14: player
+  15: printer
+  16: television
+  17: washing_machine
